@@ -1,11 +1,13 @@
 import numbers
 import copy
+from fractions import Fraction
 import numpy as np
 from itertools import combinations
 
 class Term:
     def __init__(self, gms=(), factor=1, gmsAreSorted=True):
 
+        # Factor should be fraction
         self._factor = factor
 
         if gmsAreSorted:
@@ -109,7 +111,8 @@ class Term:
         return hash(self._grassmanNumbers)
 
     def __repr__(self):
-        rv = f"{self._factor:+f}"
+        rv = "+" if self._factor >= 0 else ""
+        rv += f"{self._factor}"
         for gm in self._grassmanNumbers:
             if gm < 0:
                 rv += f" U{abs(gm)}"
@@ -123,7 +126,7 @@ class Term:
 class Polynomial:
     def __init__(self, terms=[]):
         # self._terms is a dict with tuples of grasmannumbers (i.e. pos or neg ints)
-        # as keys and the numerical factors as values
+        # as keys and the numerical factors (Fractions) as values
 
         # The constructor can either take a dictionary formatted as above or
         # a list of Terms
@@ -354,7 +357,8 @@ class Polynomial:
     def __repr__(self):
         rv = "P("
         for gmtuple, factor in self._terms.items():
-            rv += f" {factor:+f}"
+            rv += " +" if factor >= 0 else " "
+            rv += f"{factor}"
             for gm in gmtuple:
                 if gm < 0:
                     rv += f" U{abs(gm)}"
@@ -367,11 +371,11 @@ class Polynomial:
         
 
 def generateS(d):
-    return Polynomial({(-i,i): 1 for i in range(1,d+1)})
+    return Polynomial({(-i,i): Fraction(1) for i in range(1,d+1)})
 
 def tests():
     a = generateS(2)
-    assert a == Polynomial({(-1, 1): 1, (-2, 2): 1})
+    assert a == Polynomial({(-1, 1): Fraction(1), (-2, 2): Fraction(1)})
     b = generateS(12)
     assert len(b*b*b*b*b) == 792
     assert len(b*b*b*b*b*b*b*b*b*b*b*b*b) == 0
@@ -396,17 +400,17 @@ def getZeroPolynomial(c, kind='UU'):
         for a in range(d):
             for b in range(a+1, d):
                 if data[a,b,c-1] != 0:
-                        terms.append(Term(gms=(-(b+1), -(a+1)), factor=-2 * data[a,b,c-1]))
+                        terms.append(Term(gms=(-(b+1), -(a+1)), factor=Fraction(int(data[a,b,c-1]))))
     elif kind == 'UV':
         for a in range(d):
             for b in range(d):
                 if data[a,b,c-1] != 0:
-                    terms.append(Term(gms=(-(a+1), b+1), factor = data[a,b,c-1]))
+                    terms.append(Term(gms=(-(a+1), b+1), factor = Fraction(int(data[a,b,c-1]))))
     elif kind == 'VV':
         for a in range(d):
             for b in range(a+1,d):
                 if data[a,b,c-1] != 0:
-                    terms.append(Term(gms=(a+1, b+1), factor = -2 * data[a,b,c-1]))
+                    terms.append(Term(gms=(a+1, b+1), factor = Fraction(int(data[a,b,c-1]))))
     else:
         raise ValueError("Should be one of UU, UV, VV")
 
