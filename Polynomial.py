@@ -1,7 +1,9 @@
 import numbers
 import copy
-from fractions import Fraction
+#from quicktions import Fraction
 import numpy as np
+import scipy.sparse
+import scipy.sparse.linalg
 from itertools import combinations
 
 class Term:
@@ -143,6 +145,8 @@ class Polynomial:
                 self._terms[term.getGMs()] = term.getFactor()
 
 
+    def getTerms(self):
+        return self._terms
     def clearZeros(self):
         """
         Remove all terms with a factor smaller than tol=1e-10
@@ -185,7 +189,6 @@ class Polynomial:
             rv.clearZeros()
             return rv
             
-
     def __sub__(self, other):
         """ 
         Subtract other and self
@@ -214,7 +217,6 @@ class Polynomial:
             rv = Polynomial(newTerms)
             rv.clearZeros()
             return rv
-
 
     def scalarProd(self, other):
         """
@@ -261,7 +263,7 @@ class Polynomial:
             
         return rv
             
-    def getBasisVectors(self):
+    def getOrthogonalBasisVectors(self, cdict, zeropols):
         """
         Returns a list of vectors (polynomials) that are mutually orthogonal
         and span the projection of the polynomial self on to the nullspace
@@ -272,7 +274,7 @@ class Polynomial:
         for gmtuple in self._terms:
             for (a, b) in combinations(gmtuple, 2):
                 #breakpoint()
-                for c in getcs(abs(a), abs(b)):
+                for c in cdict[abs(a), abs(b)]:
                     if a < 0 and b < 0:
                         kind = 'UU'
                     elif a < 0 and b > 0:
@@ -288,9 +290,100 @@ class Polynomial:
                         basisVectors.append(basisVector)
         return basisVectors
 
-    def reduce(self):
-        bvs = self.getBasisVectors()
+    def getBasisVectors(self, cdict, zeropols):
+
+        """
+        Returns a list of vectors (polynomials) that are NOT mutually orthogonal
+        and span the projection of the polynomial self on to the nullspace
+        i.e. the space spanned by the polynomials equivalent to 0.
+
+        Unfortunately, it gives to few vectors so far.
+        """
+
+        basisVectors = set()
+        for gmtuple in self._terms:
+            for (a, b) in combinations(gmtuple, 2):
+                #breakpoint()
+                for c in cdict[abs(a), abs(b)]:
+                    if a < 0 and b < 0:
+                        kind = 'UU'
+                    elif a < 0 and b > 0:
+                        kind = 'UV'
+                    elif a > 0 and b > 0:
+                        kind = 'VV'
+
+                    restterm = Term(gms=gmtuple, factor=1).rest((a,b))
+                    basisVector = zeropols[(c, kind)] * restterm
+                    if len(basisVector) != 0:
+                        basisVectors.add(basisVector)
+
+        return basisVectors
+
+    def reduce(self, cdict, zeropols):
+        bvs = self.getOrthogonalBasisVectors(cdict, zeropols)
         return self.modOut(bvs)
+
+    def reduce2(self, cdict, zeropols):
+        # Get basisvectors:
+        bvs = self.getBasisVectors(cdict, zeropols)
+        # Convert these basis vectors, 
+        # which at the moment are polynomials
+        # to numerical sparse scipy vectors (or matrix?)
+
+        # Find all gmtuples of all basisvectors
+        gmtuplesToIndices = dict()
+        indicesToGMtuples = dict()
+        i = 0
+        for bv in bvs:
+            for gmtuple in bv._terms:
+                if not gmtuple in gmtuplesToIndices:
+                    gmtuplesToIndices[gmtuple] = i
+                    indicesToGMtuples[i] = gmtuple
+                    i += 1
+        for gmtuple in self._terms:
+            if not gmtuple in gmtuplesToIndices:
+                gmtuplesToIndices[gmtuple] = i
+                indicesToGMtuples[i] = gmtuple
+                i += 1
+
+        # Construction of sparse matrix
+        row_inds = []
+        col_inds = []
+        data = []
+        for i, bv in enumerate(bvs):
+            for gmtuple, factor in bv._terms.items():
+                col_inds.append(i)
+                row_inds.append(gmtuplesToIndices[gmtuple])
+                data.append(factor)
+
+        #breakpoint()
+        sparse_mat = scipy.sparse.csc_matrix((data, (row_inds, col_inds)),[len(gmtuplesToIndices), len(bvs)])
+
+        # Construct the solution vector
+        sol_vec = np.zeros(len(gmtuplesToIndices))
+        for gmtuple, factor in self._terms.items():
+            sol_vec[gmtuplesToIndices[gmtuple]] = factor
+
+
+        # Solve the system of equations
+        result = scipy.sparse.linalg.lsqr(sparse_mat, sol_vec)
+        x = result[0]
+        projected_vector = sparse_mat * x
+
+        #breakpoint()
+        # Construct the polynomial
+        newTerms = dict()
+        for i, factor in enumerate(projected_vector):
+            if abs(factor) > 1e-10:
+                newTerms[indicesToGMtuples[i]] = self._terms.get(indicesToGMtuples[i],
+                                                                 0) - factor
+
+        return Polynomial(newTerms)
+        
+    def __hash__(self):
+        return hash(tuple(sorted(self._terms.items())))
+
+
 
     def __mul__(self, other):
         if isinstance(other, Polynomial):
@@ -369,10 +462,6 @@ class Polynomial:
         return rv
 
         
-
-def generateS(d):
-    return Polynomial({(-i,i): Fraction(1) for i in range(1,d+1)})
-
 def tests():
     a = generateS(2)
     assert a == Polynomial({(-1, 1): Fraction(1), (-2, 2): Fraction(1)})
@@ -382,49 +471,4 @@ def tests():
     assert b.modOut([a]).modOut([a]) == b.modOut([a])
     s = generateS(8)
     p = s*s
-    q = p.reduce()
-
-
-data = np.load("StructConstSU3.bin", encoding='bytes')
-d = len(data)
-
-def getcs(a,b):
-    return [i + 1 for i in np.nonzero(data[a-1,b-1,:])[0]]
-
-def getZeroPolynomial(c, kind='UU'):
-    # Should be written better!
-    #breakpoint()
-    terms = []
-
-    if kind == 'UU':
-        for a in range(d):
-            for b in range(a+1, d):
-                if data[a,b,c-1] != 0:
-                        terms.append(Term(gms=(-(b+1), -(a+1)), factor=Fraction(int(data[a,b,c-1]))))
-    elif kind == 'UV':
-        for a in range(d):
-            for b in range(d):
-                if data[a,b,c-1] != 0:
-                    terms.append(Term(gms=(-(a+1), b+1), factor = Fraction(int(data[a,b,c-1]))))
-    elif kind == 'VV':
-        for a in range(d):
-            for b in range(a+1,d):
-                if data[a,b,c-1] != 0:
-                    terms.append(Term(gms=(a+1, b+1), factor = Fraction(int(data[a,b,c-1]))))
-    else:
-        raise ValueError("Should be one of UU, UV, VV")
-
-    return Polynomial(terms)
-
-zeropols = {(c, kind): getZeroPolynomial(c, kind=kind) for c in range(1, d+1) for kind in ['UU', 'UV', 'VV']}
-
-def main():
-    S = generateS(52)
-    P = S.modOut(S.getBasisVectors())
-    while True:
-        P = P * S
-        P = P.modOut(P.getBasisVectors())
-        print(len(P))
-        if len(P) == 0:
-            break
 
