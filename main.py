@@ -1,5 +1,6 @@
 from Polynomial import Polynomial, Term
 
+import time
 import numpy as np
 #from quicktions import Fraction
 
@@ -39,13 +40,11 @@ def getZeroPolynomial(c, kind='UU'):
 
 zeropols = {(c, kind): getZeroPolynomial(c, kind=kind) for c in range(1, d+1) for kind in ['UU', 'UV', 'VV']}
 
-def main():
-    S = generateS(52)
-    P = S.modOut(S.getBasisVectors())
-    while True:
-        P = P * S
-        P = P.modOut(P.getBasisVectors())
-        print(len(P))
-        if len(P) == 0:
-            break
-
+start = time.time()
+s = generateS(14)
+p = s*s*s*s
+q = p.reduce3(cdict, zeropols)
+#r = q.reduce3(cdict, zeropols)
+#print(len(r-q))
+end = time.time()
+print(f"Time duration: {end - start}")
