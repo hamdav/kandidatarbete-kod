@@ -6,19 +6,48 @@ import scipy.sparse
 import scipy.sparse.linalg
 from itertools import combinations
 
+def sortWithParity(gms):
+    """
+    Sorts the iterable gms and keeps track of the parity
+    Returns sorted tuple and True if parity of sort is even, False if odd. 
+
+    For now, it uses insertion sort
+    """
+
+    parity = True
+
+    l = list(gms)
+    sortedIndex = 0     # The list is sorted before this index.
+
+    # When sortedIndex becomes the length of the list, the entire list is sorted.
+    while sortedIndex < len(l):
+
+        element = l[sortedIndex]
+        i = sortedIndex
+        sortedIndex += 1
+
+        while(i>0 and l[i-1]>element):
+            l[i]=l[i-1]
+            i=i-1
+            parity = not parity
+
+        l[i]=element
+
+    return tuple(l), parity
+
+
+
 class Term:
     def __init__(self, gms=(), factor=1, gmsAreSorted=True):
 
-        # Factor should be fraction
-        self._factor = factor
-
         if gmsAreSorted:
             self._grassmanNumbers = gms
+            self._factor = factor
         else:
-            # sort it
-            # Find parity of sort
-            # Make factor accordingly
-            sorted(range(len(gms)), key=lambda k: gms[k])
+            sortedgms, parity = sortWithParity(gms)
+            self._grassmanNumbers = sortedgms
+            self._factor = factor if parity else -factor
+
 
     def rest(self, skipgms):
         """
