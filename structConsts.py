@@ -3,7 +3,7 @@ from Polynomial import Polynomial, Term
 import time
 import numpy as np
 
-data = np.load("StructConstG2.bin", encoding='bytes')
+data = np.load("StructConstF4.bin", encoding='bytes')
 d = len(data)
 
 cdict = {(a,b): [i + 1 for i in np.nonzero(data[a-1,b-1,:])[0]] for a in range(1, d+1) for b in range(1, d+1)}
