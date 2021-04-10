@@ -158,7 +158,7 @@ class Polynomial:
 
     def __init__(self, terms=[]):
         # self._terms is a dict with tuples of grasmannumbers (i.e. pos or neg ints)
-        # as keys and the numerical factors (Fractions) as values
+        # as keys and the numerical factors as values
 
         # The constructor can either take a dictionary formatted as above or
         # a list of Terms
@@ -173,6 +173,8 @@ class Polynomial:
 
             for term in terms:
                 self._terms[term.getGMs()] = term.getFactor()
+        else:
+            raise ValueError("Polynomial constructor takes only dicts or lists of terms. ")
 
     def getTerms(self):
         return self._terms
@@ -280,31 +282,31 @@ class Polynomial:
 
         # This is ugly, do something better to find the number of factors in each term
         for gmtuple in self._terms:
-            n=len(gmtuple)
+            m=len(gmtuple)
             break
 
         # TODO Set in a better way
-        dimension=14
+        n = len(zeropols) // 3
 
         # n is even.
         for (c, kind), pol in zeropols.items():
             if kind == 'UU':
-                for us in combinations(range(-dimension, 0), n//2 - 2):
-                    for vs in combinations(range(1, dimension+1), n//2):
+                for us in combinations(range(-n, 0), m//2 - 2):
+                    for vs in combinations(range(1, n+1), m//2):
                         restterm = Term(gms=us+vs, factor=1)
                         basisVector = pol * restterm
                         if len(basisVector) != 0:
                             basisVectors.add(basisVector)
             if kind == 'UV':
-                for us in combinations(range(-dimension, 0), n//2 - 1):
-                    for vs in combinations(range(1, dimension+1), n//2 - 1):
+                for us in combinations(range(-n, 0), m//2 - 1):
+                    for vs in combinations(range(1, n+1), m//2 - 1):
                         restterm = Term(gms=us+vs, factor=1)
                         basisVector = pol * restterm
                         if len(basisVector) != 0:
                             basisVectors.add(basisVector)
             if kind == 'VV':
-                for us in combinations(range(-dimension, 0), n//2):
-                    for vs in combinations(range(1, dimension+1), n//2 - 2):
+                for us in combinations(range(-n, 0), m//2):
+                    for vs in combinations(range(1, n+1), m//2 - 2):
                         restterm = Term(gms=us+vs, factor=1)
                         basisVector = pol * restterm
                         if len(basisVector) != 0:
@@ -410,7 +412,7 @@ class Polynomial:
         # POLYNOMIALS!!!!
 
         basisVectors = set()
-        
+
 
         # This is ugly, do something better to find the number of factors in each term
         for gmtuple in self._terms:
@@ -418,7 +420,7 @@ class Polynomial:
             break
 
         # TODO Set in a better way
-        dimension=14
+        dimension=len(zeropols)//3
 
         gmtuplesToIndices = dict()
         indicesToGMtuples = dict()
@@ -435,6 +437,7 @@ class Polynomial:
         col_inds = []
         data = []
         # n is even.
+        i = 0
         for (c, kind), pol in zeropols.items():
             if kind == 'UU':
                 nU = n // 2 - 2
@@ -448,6 +451,9 @@ class Polynomial:
 
             for us in combinations(range(-dimension, 0), nU):
                 for vs in combinations(range(1, dimension+1), nV):
+                    if i % 1000 == 0:
+                        print(i)
+                    i += 1
                     restterm = Term(gms=us+vs, factor=1)
                     basisVector = pol * restterm
                     if len(basisVector) == 0:
