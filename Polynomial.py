@@ -102,27 +102,42 @@ class Term:
                 if a > b:
                     newGms.append(b)
                     ii += 1
-                    parity = (int(parity) + len(self._grassmanNumbers) - i % 2) == 0
+                    # If b is moved an odd number of steps, change the parity
+                    if (len(self._grassmanNumbers) - i) % 2:
+                        parity = not parity
 
             if i != len(self._grassmanNumbers):
                 newGms += self._grassmanNumbers[i:]
             elif ii != len(other._grassmanNumbers):
                 newGms += other._grassmanNumbers[ii:]
 
-            newFactor = self._factor * (-1 if parity else 1)
+            newFactor = self._factor * other._factor * (-1 if parity else 1)
 
             return Term(gms=tuple(newGms), factor=newFactor)
 
-        elif isinstance(other, number.Numeric):
+        elif isinstance(other, numbers.Number):
             return Term(gms=self._grassmanNumbers, factor=other*self._factor)
+        else:
+            return NotImplemented
+
 
     def __add__(self, other):
-        assert self._grassmanNumbers == other._grassmanNumbers
-        return Term(gms=self._grassmanNumbers, factor=self._factor + other._factor)
+        if isinstance(other, Term):
+            if self._grassmanNumbers == other._grassmanNumbers:
+                return Term(gms=self._grassmanNumbers, factor=self._factor + other._factor)
+            else:
+                return Polynomial([self, other])
+        else:
+            return NotImplemented
 
     def __sub__(self, other):
-        assert self._grassmanNumbers == other._grassmanNumbers
-        return Term(gms=self._grassmanNumbers, factor=self._factor - other._factor)
+        if isinstance(other, Term):
+            if self._grassmanNumbers == other._grassmanNumbers:
+                return Term(gms=self._grassmanNumbers, factor=self._factor - other._factor)
+            else:
+                return Polynomial([self, -other])
+        else:
+            return NotImplemented
 
     def __neg__(self):
         return Term(gms=self._grassmanNumbers, factor=-self._factor)
@@ -131,7 +146,10 @@ class Term:
         """
         Terms that are the same up to a constant numerical factor are equal
         """
-        return self._grassmanNumbers == other._grassmanNumbers
+        if isinstance(other, Term):
+            return self._grassmanNumbers == other._grassmanNumbers
+        else:
+            return NotImplemented
 
     # To enable using Term as a key in a dictionary
     def __hash__(self):
@@ -172,7 +190,12 @@ class Polynomial:
             self._terms = dict()
 
             for term in terms:
-                self._terms[term.getGMs()] = term.getFactor()
+                gms = term.getGMs()
+                if gms in self._terms:
+                    self._terms[gms] += term.getFactor()
+                else:
+                    self._terms[gms] = term.getFactor()
+
         else:
             raise ValueError("Polynomial constructor takes only dicts or lists of terms. ")
 
@@ -520,6 +543,8 @@ class Polynomial:
             rv = Polynomial(newTerms)
             rv.clearZeros()
             return rv
+        else:
+            return NotImplemented
             
     def __sub__(self, other):
         """ 
@@ -550,6 +575,8 @@ class Polynomial:
             rv.clearZeros()
             return rv
         
+        else:
+            return NotImplemented
     def __hash__(self):
         return hash(tuple(sorted(self._terms.items())))
 
@@ -594,6 +621,9 @@ class Polynomial:
 
             return Polynomial(newTerms)
 
+        else:
+            return NotImplemented
+
     def __rmul__(self, other):
         if isinstance(other, Term):
 
@@ -608,6 +638,9 @@ class Polynomial:
 
         elif isinstance(other, numbers.Number):
             return self * other
+
+        else:
+            return NotImplemented
 
     def __eq__(self, other):
         return self._terms == other._terms
@@ -628,15 +661,3 @@ class Polynomial:
 
         rv += " )"
         return rv
-
-        
-def tests():
-    a = generateS(2)
-    assert a == Polynomial({(-1, 1): Fraction(1), (-2, 2): Fraction(1)})
-    b = generateS(12)
-    assert len(b*b*b*b*b) == 792
-    assert len(b*b*b*b*b*b*b*b*b*b*b*b*b) == 0
-    assert b.modOut([a]).modOut([a]) == b.modOut([a])
-    s = generateS(8)
-    p = s*s
-
