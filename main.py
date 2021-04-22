@@ -5,6 +5,7 @@ import numpy as np
 #from quicktions import Fraction
 
 from Polynomial import Polynomial, Term
+from Reduction import clearZeros, reduce3
 from structConsts import zeropols, cdict
 
 def neg(gm, n, r):
@@ -39,18 +40,26 @@ def generatePowerOfS(n, r, p, trueFactors=False):
                        for gms in itertools.combinations(termsInS, p)])
 
 start = time.time()
-p = generatePowerOfS(52, 4, 52)
-breakpoint()
-q = p.reduce3(cdict, zeropols)
-print(q)
-#s = generateS(15, 3)
-#p = s*s
-#q = p.reduce3(cdict, zeropols)
-#r = q.reduce3(cdict, zeropols)
-#print(len(r-q))
+
+# Test G2
+s = generateS(14, 2)
+
+p = s*s
+q = reduce3(p, cdict, zeropols)
+q = clearZeros(q, 1e-6)
+print(len(q))
+print("S^2 length:", len(q))
+
+p = s*s*s
+q = reduce3(p, cdict, zeropols)
+q = clearZeros(q, 1e-6)
+print("S^3 length:", len(q))
+
+p = s*s*s*s
+q = reduce3(p, cdict, zeropols)
+q = clearZeros(q, 1e-6)
+print("S^4 length:", len(q))
+
 end = time.time()
 print(f"Time duration: {end - start}")
 
-#for key in zeropols:
-    #if key[1] == 'UU':
-        #print(zeropols[key])

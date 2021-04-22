@@ -36,7 +36,6 @@ def sortWithParity(gms):
     return tuple(l), parity
 
 
-
 class Term:
     def __init__(self, gms=(), factor=1, gmsAreSorted=True):
 
@@ -202,319 +201,68 @@ class Polynomial:
     def getTerms(self):
         return self._terms
 
-    def clearZeros(self, tol = 1e-7):
-        
-        """
-        Remove all terms with a factor smaller than tol=1e-10
-        """
-        print("hi")
-        delterms = []
-        for gmtuple, factor in self._terms.items():
-            if abs(factor) < tol:
-                delterms.append(gmtuple)
+    def __mul__(self, other):
+        if isinstance(other, Polynomial):
+            newTerms = dict()
+            for sgmtuple, sfactor in self._terms.items():
+                for ogmtuple, ofactor in other._terms.items():
 
-        for gmtuple in delterms:
-            del self._terms[gmtuple]
+                    newTerm = Term(gms=sgmtuple, factor=sfactor) * \
+                        Term(gms=ogmtuple,factor=ofactor)
+                    newGmTuple = newTerm.getGMs()
 
-    def scalarProd(self, other):
-        """
-        Take the scalar product of self with other.
-        Scalar product is defined as regular scalar product where the 
-        elements of the vector are the factors in front of the terms. 
-        For example
-        (2 X + 3 XY + 5 Z) . (3 XZ + 10 XY + 2 Z + 5 Y) = 3 * 10 + 5 * 2 = 40
-        """
+                    if newGmTuple in newTerms:
+                        newFactor = newTerms[newGmTuple] + newTerm.getFactor()
+                        del newTerms[newGmTuple]
+                    else:
+                        newFactor = newTerm.getFactor()
 
-        if len(self) < len(other):
-            a = self
-            b = other
+                    if newFactor != 0:
+                        newTerms[newGmTuple] = newFactor
+
+            return Polynomial(newTerms)
+
+        elif isinstance(other, Term):
+
+            newTerms = dict()
+
+            for gmtuple, factor in self._terms.items():
+                newTerm = Term(gms=gmtuple, factor=factor) * other
+                if newTerm.getFactor() != 0:
+                    newTerms[newTerm.getGMs()] = newTerm.getFactor()
+
+            return Polynomial(newTerms)
+
+        elif isinstance(other, numbers.Number):
+
+            newTerms = self._terms.copy()
+
+            for gmtuple in newTerms:
+                newTerms[gmtuple] *= other
+
+            return Polynomial(newTerms)
+
         else:
-            a = other
-            b = self
+            return NotImplemented
 
-        rv = 0
-        for gmtuple, factor in a._terms.items():
-            if gmtuple in b._terms:
-                rv += factor * b._terms[gmtuple]
+    def __rmul__(self, other):
+        if isinstance(other, Term):
 
-        return rv
+            newTerms = dict()
 
-    def normsquared(self):
-        """
-        Return the scalar product of self with itself
-        """
-        if self._normsquared is None:
-            self._normsquared = 0
-            for _, factor in self._terms.items():
-                self._normsquared += factor**2
+            for gmtuple, factor in self._terms.items():
+                newTerm = other * Term(gms=gmtuple, factor=factor)
+                if newTerm.getFactor() != 0:
+                    newTerms[newTerm.getGMs()] = newTerm.getFactor()
 
-        return self._normsquared
+            return Polynomial(newTerms)
 
-    def modOut(self, basisVectors):
-        """
-        Returns polynomial that is orthogonal all of the basis polynomials
-        basisVectors MUST be orthogonal
-        """
-        rv = copy.deepcopy(self)
-        for p in basisVectors:
-            rv = rv - self.scalarProd(p) / p.normsquared() * p
-            
-        return rv
-            
-    def getOrthogonalBasisVectors(self, cdict, zeropols):
-        """
-        Returns a list of vectors (polynomials) that are mutually orthogonal
-        and span the projection of the polynomial self on to the nullspace
-        i.e. the space spanned by the polynomials equivalent to 0.
-        """
+        elif isinstance(other, numbers.Number):
+            return self * other
 
-        basisVectors = []
-        for gmtuple in self._terms:
-            for (a, b) in combinations(gmtuple, 2):
-                #breakpoint()
-                for c in cdict[abs(a), abs(b)]:
-                    if a < 0 and b < 0:
-                        kind = 'UU'
-                    elif a < 0 and b > 0:
-                        kind = 'UV'
-                    elif a > 0 and b > 0:
-                        kind = 'VV'
+        else:
+            return NotImplemented
 
-                    #basisVector = getZeroPolynomial(c, kind=kind) * term.rest((a, b))
-                    #basisVector = basisVector.modOut(basisVectors)
-                    restterm = Term(gms=gmtuple, factor=1).rest((a,b))
-                    basisVector = (zeropols[(c, kind)] * restterm).modOut(basisVectors)
-                    if len(basisVector) != 0:
-                        basisVectors.append(basisVector)
-        return basisVectors
-
-    def getAllBasisVectors(self, cdict, zeropols):
-
-        """
-        Returns a list of all possible basis vectors.
-        Does this by simply getting all binomials equivalent to 0 and
-        multiplying them with all possible continuations. 
-
-        """
-
-        # NOTE THAT THERE MUST BE AN EQUAL NUMER OF US AND VS IN ALL BASIS
-        # POLYNOMIALS!!!!
-
-        basisVectors = set()
-        
-
-        # This is ugly, do something better to find the number of factors in each term
-        for gmtuple in self._terms:
-            m=len(gmtuple)
-            break
-
-        # TODO Set in a better way
-        n = len(zeropols) // 3
-
-        # n is even.
-        for (c, kind), pol in zeropols.items():
-            if kind == 'UU':
-                for us in combinations(range(-n, 0), m//2 - 2):
-                    for vs in combinations(range(1, n+1), m//2):
-                        restterm = Term(gms=us+vs, factor=1)
-                        basisVector = pol * restterm
-                        if len(basisVector) != 0:
-                            basisVectors.add(basisVector)
-            if kind == 'UV':
-                for us in combinations(range(-n, 0), m//2 - 1):
-                    for vs in combinations(range(1, n+1), m//2 - 1):
-                        restterm = Term(gms=us+vs, factor=1)
-                        basisVector = pol * restterm
-                        if len(basisVector) != 0:
-                            basisVectors.add(basisVector)
-            if kind == 'VV':
-                for us in combinations(range(-n, 0), m//2):
-                    for vs in combinations(range(1, n+1), m//2 - 2):
-                        restterm = Term(gms=us+vs, factor=1)
-                        basisVector = pol * restterm
-                        if len(basisVector) != 0:
-                            basisVectors.add(basisVector)
-
-        return basisVectors
-
-    def getBasisVectors(self, cdict, zeropols):
-
-        """
-        Returns a list of vectors (polynomials) that are NOT mutually orthogonal
-        and span the projection of the polynomial self on to the nullspace
-        i.e. the space spanned by the polynomials equivalent to 0.
-
-        Unfortunately, it gives to few vectors so far.
-        """
-
-        basisVectors = set()
-        for gmtuple in self._terms:
-            for (a, b) in combinations(gmtuple, 2):
-                #breakpoint()
-                for c in cdict[abs(a), abs(b)]:
-                    if a < 0 and b < 0:
-                        kind = 'UU'
-                    elif a < 0 and b > 0:
-                        kind = 'UV'
-                    elif a > 0 and b > 0:
-                        kind = 'VV'
-
-                    restterm = Term(gms=gmtuple, factor=1).rest((a,b))
-                    basisVector = zeropols[(c, kind)] * restterm
-                    if len(basisVector) != 0:
-                        basisVectors.add(basisVector)
-
-        return basisVectors
-
-    def reduce(self, cdict, zeropols):
-        bvs = self.getOrthogonalBasisVectors(cdict, zeropols)
-        return self.modOut(bvs)
-
-    def reduce2(self, cdict, zeropols):
-        breakpoint()
-        # Get basisvectors:
-        bvs = self.getAllBasisVectors(cdict, zeropols)
-
-        # Convert these basis vectors, 
-        # which at the moment are polynomials
-        # to numerical sparse scipy vectors (or matrix?)
-
-        # Find all gmtuples of all basisvectors
-        gmtuplesToIndices = dict()
-        indicesToGMtuples = dict()
-        i = 0
-        for bv in bvs:
-            for gmtuple in bv._terms:
-                if not gmtuple in gmtuplesToIndices:
-                    gmtuplesToIndices[gmtuple] = i
-                    indicesToGMtuples[i] = gmtuple
-                    i += 1
-        for gmtuple in self._terms:
-            if not gmtuple in gmtuplesToIndices:
-                gmtuplesToIndices[gmtuple] = i
-                indicesToGMtuples[i] = gmtuple
-                i += 1
-
-        # Construction of sparse matrix
-        row_inds = []
-        col_inds = []
-        data = []
-        for i, bv in enumerate(bvs):
-            for gmtuple, factor in bv._terms.items():
-                col_inds.append(i)
-                row_inds.append(gmtuplesToIndices[gmtuple])
-                data.append(factor)
-
-        #breakpoint()
-        sparse_mat = scipy.sparse.csc_matrix((data, (row_inds, col_inds)),[len(gmtuplesToIndices), len(bvs)])
-
-        # Construct the solution vector
-        sol_vec = np.zeros(len(gmtuplesToIndices))
-        for gmtuple, factor in self._terms.items():
-            sol_vec[gmtuplesToIndices[gmtuple]] = factor
-
-
-        # Solve the system of equations
-        # TODO: Check if lsmr is faster (see https://stackoverflow.com/questions/12067830/differences-between-scipy-sparse-linalg-lsmr-and-scipy-sparse-linalg-lsqr)
-        result = scipy.sparse.linalg.lsqr(sparse_mat, sol_vec)
-        x = result[0]
-        projected_vector = sparse_mat * x
-
-        #breakpoint()
-        # Construct the polynomial
-        newTerms = dict()
-        for i, factor in enumerate(projected_vector):
-            newTerms[indicesToGMtuples[i]] = self._terms.get(indicesToGMtuples[i], 
-                                                             0) - factor
-
-        return Polynomial(newTerms)
-
-    def reduce3(self, cdict, zeropols):
-
-        # NOTE THAT THERE MUST BE AN EQUAL NUMER OF US AND VS IN ALL BASIS
-        # POLYNOMIALS!!!!
-
-        basisVectors = set()
-
-
-        # This is ugly, do something better to find the number of factors in each term
-        for gmtuple in self._terms:
-            n=len(gmtuple)
-            break
-
-        # TODO Set in a better way
-        dimension=len(zeropols)//3
-
-        gmtuplesToIndices = dict()
-        indicesToGMtuples = dict()
-        row_index = 0
-        col_index = 0
-
-        for gmtuple in self._terms:
-            if gmtuple not in gmtuplesToIndices:
-                gmtuplesToIndices[gmtuple] = row_index
-                indicesToGMtuples[row_index] = gmtuple
-                row_index += 1
-
-        row_inds = []
-        col_inds = []
-        data = []
-        # n is even.
-        i = 0
-        for (c, kind), pol in zeropols.items():
-            if kind == 'UU':
-                nU = n // 2 - 2
-                nV = n // 2
-            if kind == 'UV':
-                nU = n // 2 - 1
-                nV = n // 2 - 1
-            if kind == 'VV':
-                nU = n // 2
-                nV = n // 2 - 2
-
-            for us in combinations(range(-dimension, 0), nU):
-                for vs in combinations(range(1, dimension+1), nV):
-                    if i % 1000 == 0:
-                        print(i)
-                    i += 1
-                    restterm = Term(gms=us+vs, factor=1)
-                    basisVector = pol * restterm
-                    if len(basisVector) == 0:
-                        continue
-                    for gmtuple, factor in basisVector._terms.items():
-                        if gmtuple not in gmtuplesToIndices:
-                            gmtuplesToIndices[gmtuple] = row_index
-                            indicesToGMtuples[row_index] = gmtuple
-                            row_index += 1
-                        row_inds.append(gmtuplesToIndices[gmtuple])
-                        col_inds.append(col_index)
-                        data.append(factor)
-                    col_index += 1
-
-
-        sparse_mat = scipy.sparse.csc_matrix((data, (row_inds, col_inds)),[len(gmtuplesToIndices), col_index])
-
-        # Construct the solution vector
-        sol_vec = np.zeros(len(gmtuplesToIndices))
-        for gmtuple, factor in self._terms.items():
-            sol_vec[gmtuplesToIndices[gmtuple]] = factor
-
-
-        # Solve the system of equations
-        # breakpoint()
-        result = scipy.sparse.linalg.lsmr(sparse_mat, sol_vec, atol=1e-10, btol=1e-10)
-        x = result[0]
-        print(f"iteration stop reason: {result[1]}")
-        projected_vector = sparse_mat * x
-
-        #breakpoint()
-        # Construct the polynomial
-        newTerms = dict()
-        for i, factor in enumerate(projected_vector):
-            newTerms[indicesToGMtuples[i]] = self._terms.get(indicesToGMtuples[i], 
-                                                             0) - factor
-
-        return Polynomial(newTerms)
     def __add__(self, other):
         """ 
         Add other and self
@@ -575,70 +323,6 @@ class Polynomial:
             rv.clearZeros()
             return rv
         
-        else:
-            return NotImplemented
-    def __hash__(self):
-        return hash(tuple(sorted(self._terms.items())))
-
-    def __mul__(self, other):
-        if isinstance(other, Polynomial):
-            newTerms = dict()
-            for sgmtuple, sfactor in self._terms.items():
-                for ogmtuple, ofactor in other._terms.items():
-
-                    newTerm = Term(gms=sgmtuple, factor=sfactor) * \
-                        Term(gms=ogmtuple,factor=ofactor)
-                    newGmTuple = newTerm.getGMs()
-
-                    if newGmTuple in newTerms:
-                        newFactor = newTerms[newGmTuple] + newTerm.getFactor()
-                        del newTerms[newGmTuple]
-                    else:
-                        newFactor = newTerm.getFactor()
-
-                    if newFactor != 0:
-                        newTerms[newGmTuple] = newFactor
-
-            return Polynomial(newTerms)
-
-        elif isinstance(other, Term):
-
-            newTerms = dict()
-
-            for gmtuple, factor in self._terms.items():
-                newTerm = Term(gms=gmtuple, factor=factor) * other
-                if newTerm.getFactor() != 0:
-                    newTerms[newTerm.getGMs()] = newTerm.getFactor()
-
-            return Polynomial(newTerms)
-
-        elif isinstance(other, numbers.Number):
-
-            newTerms = self._terms.copy()
-
-            for gmtuple in newTerms:
-                newTerms[gmtuple] *= other
-
-            return Polynomial(newTerms)
-
-        else:
-            return NotImplemented
-
-    def __rmul__(self, other):
-        if isinstance(other, Term):
-
-            newTerms = dict()
-
-            for gmtuple, factor in self._terms.items():
-                newTerm = other * Term(gms=gmtuple, factor=factor)
-                if newTerm.getFactor() != 0:
-                    newTerms[newTerm.getGMs()] = newTerm.getFactor()
-
-            return Polynomial(newTerms)
-
-        elif isinstance(other, numbers.Number):
-            return self * other
-
         else:
             return NotImplemented
 
