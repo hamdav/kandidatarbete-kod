@@ -170,7 +170,6 @@ class Term:
         return rv
 
 
-
 class Polynomial:
 
     def __init__(self, terms=[]):
@@ -200,6 +199,18 @@ class Polynomial:
 
     def getTerms(self):
         return self._terms
+
+    def _clearZeros(self):
+        """
+        Removes terms with a factor of 0
+        """
+        dellist = []
+        for gmtuple, factor in self._terms.items():
+            if factor == 0:
+                dellist.append(gmtuple)
+
+        for gmtuple in dellist:
+            del self._terms[gmtuple]
 
     def __mul__(self, other):
         if isinstance(other, Polynomial):
@@ -245,6 +256,14 @@ class Polynomial:
         else:
             return NotImplemented
 
+    def __neg__(self):
+        newTerms = self._terms.copy()
+
+        for gmtuple, factor in newTerms.items():
+            newTerms[gmtuple] = -factor
+
+        return Polynomial(newTerms)
+
     def __rmul__(self, other):
         if isinstance(other, Term):
 
@@ -269,62 +288,54 @@ class Polynomial:
         """
 
         if isinstance(other, Polynomial):
-            newTerms = self._terms
-            for gmtuple, ofactor in other._terms.items():
+            if len(self) > len(other):
+                newTerms = self._terms.copy()
+                oTerms = other._terms
+            else:
+                newTerms = other._terms.copy()
+                oTerms = self._terms
+
+            for gmtuple, ofactor in oTerms.items():
                 if gmtuple in newTerms:
                     newTerms[gmtuple] += ofactor
                 else:
                     newTerms[gmtuple] = ofactor
 
             rv = Polynomial(newTerms)
-            rv.clearZeros()
+            rv._clearZeros()
             return rv
-        
+
         elif isinstance(other, Term):
             newTerms = self._terms.copy()
-            ogmtuple = other.getGMs
+            ogmtuple = other.getGMs()
             if ogmtuple in newTerms:
                 newTerms[ogmtuple] += other.getFactor()
             else:
                 newTerms[ogmtuple] = other.getFactor()
 
             rv = Polynomial(newTerms)
-            rv.clearZeros()
+            rv._clearZeros()
             return rv
         else:
             return NotImplemented
-            
+
+    def __radd__(self, other):
+        return self + other
+
+
     def __sub__(self, other):
         """ 
-        Subtract other and self
+        Return self - other
         """
 
-        if isinstance(other, Polynomial):
-            newTerms = self._terms
-            for gmtuple, ofactor in other._terms.items():
-                if gmtuple in newTerms:
-                    newTerms[gmtuple] -= ofactor
-                else:
-                    newTerms[gmtuple] = -ofactor
+        return self + (-other)
 
-            rv = Polynomial(newTerms)
-            rv.clearZeros()
-            return rv
-        
-        elif isinstance(other, Term):
-            newTerms = self._terms.copy()
-            ogmtuple = other.getGMs
-            if ogmtuple in newTerms:
-                newTerms[ogmtuple] -= other.getFactor()
-            else:
-                newTerms[ogmtuple] = -other.getFactor()
+    def __rsub__(self, other):
+        """
+        Return other - self
+        """
 
-            rv = Polynomial(newTerms)
-            rv.clearZeros()
-            return rv
-        
-        else:
-            return NotImplemented
+        return (-self) + other
 
     def __eq__(self, other):
         return self._terms == other._terms
