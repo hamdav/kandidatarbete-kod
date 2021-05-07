@@ -6,7 +6,8 @@ import numpy as np
 
 from Polynomial import Polynomial, Term
 from Reduction import clearZeros, reduce3
-from structConsts import zeropols, cdict
+from structConsts import getZeropolsAndCdict
+
 
 def neg(gm, n, r):
     if gm < 0:
@@ -26,8 +27,10 @@ def neg(gm, n, r):
     else:
         return 0
 
+
 def generateS(n, r):
     return Polynomial({(-i, neg(i, n, r)): 1 for i in range(1,n+1)})
+
 
 def generatePowerOfS(n, r, p, trueFactors=False):
     # If trueFactors, returns the power of S with the actual factors, 
@@ -39,10 +42,14 @@ def generatePowerOfS(n, r, p, trueFactors=False):
                             gmsAreSorted=False)
                        for gms in itertools.combinations(termsInS, p)])
 
+
+# Get the polynomials
+zeropols, cdict = getZeropolsAndCdict('StructConstG2.bin')
+
 start = time.time()
 
 # Test G2
-s = generateS(14, 2)
+s = generateS(15, 3)
 
 p = s*s
 q = reduce3(p, cdict, zeropols)
@@ -57,9 +64,8 @@ print("S^3 length:", len(q))
 
 p = s*s*s*s
 q = reduce3(p, cdict, zeropols)
-q = clearZeros(q, 1e-6)
+#q = clearZeros(q, 1e-6)
 print("S^4 length:", len(q))
 
 end = time.time()
 print(f"Time duration: {end - start}")
-
