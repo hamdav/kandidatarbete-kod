@@ -1,6 +1,6 @@
 from itertools import combinations
-import scipy.sparse
 import numpy as np
+import scipy.sparse
 
 from Polynomial import Polynomial, Term
 
@@ -8,7 +8,7 @@ from Polynomial import Polynomial, Term
 def clearZeros(p, tol = 1e-7):
 
     """
-    Remove all terms with a factor smaller than tol=1e-10
+    Remove all terms with a factor smaller than tol
     """
     newTerms = p.getTerms().copy()
 
@@ -68,7 +68,7 @@ def reduce3(p, cdict, zeropols):
     data = []
     col_index = 0
 
-    # Loop through the zeropols and for each one, create a set of 
+    # Loop through the zeropols and for each one, create a set of
     # new ones by multiplying with all possible grassmannumbers
     for (c, kind), pol in zeropols.items():
 
@@ -118,7 +118,7 @@ def reduce3(p, cdict, zeropols):
 
 
     # Solve the system of equations
-    result = scipy.sparse.linalg.lsmr(sparse_mat, sol_vec, atol=1e-10, btol=1e-10)
+    result = scipy.sparse.linalg.lsmr(sparse_mat, sol_vec, atol=1e-12, btol=1e-12)
     x = result[0]
     print(f"iteration stop reason: {result[1]}")
     print("1 means x is an approximate solution to Ax = b, i.e. the polynomial is a lin comb of zeropols.\n2 means x approximately solves the least-squares problem, i.e. it is not.")
