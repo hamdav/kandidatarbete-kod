@@ -19,7 +19,8 @@ from Reduction import reduce3
 from structConsts import getZeroPolynomial
 import fakestructconst
 
-plt.style.use("seaborn-darkgrid")
+#plt.style.use("seaborn-darkgrid")
+plt.style.use("dark_background")
 
 
 def generateS(n):
@@ -96,7 +97,9 @@ def createPlot(filename):
                  orientation='vertical',
                  label=r"Dimension: $n$")
 
-    plt.show()
+    #plt.show()
+    ax.grid('major', alpha=0.3)
+    plt.savefig("12_faketimes_transp.png", dpi=300, transparent=True)
 
 
 if __name__ == "__main__":
